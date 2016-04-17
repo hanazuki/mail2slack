@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+require 'bundler/setup'
+require 'optparse'
+require 'mail'
+require 'slack-notifier'
+
+class String
+  def in_utf8
+    encode('UTF-8', invalid: :replace, undef: :replace)
+  end
+end
+
+params = ARGV.getopts('', 'url:', 'channel:', 'username:', 'icon_emoji::email:')
+
+notifier = Slack::Notifier.new(
+  params['url'] || fail('--url is not set'),
+  channel: params['channel'],
+  username: params['username'],
+  icon_emoji: params['icon_emoji'],
+)
+
+mail = Mail.new($stdin.read)
+
+subj = mail.subject.in_utf8
+text = "From: #{mail.from.map(&:in_utf8).join(', ')}"
+body = (mail.text_part || mail.html_part || mail).decoded.in_utf8
+
+notifier.ping(attachments: [title: subj, pretext: text, fallback: text, text: body])
